@@ -1,0 +1,106 @@
+---
+title: "README"
+author: "Mingke"
+date: "2/26/2020"
+output: md_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Importing the data
+
+#I am insterested in the relationship between WI's bridge data and WI's unempolyment rate. 
+
+#Importing the WI's unemployment rate data
+```{r labor}
+library(dplyr)
+library(blscrapeR)
+df <- get_bls_county()
+WIunemployment = df %>% filter(fips_state == 55)
+WINov = get_bls_county("November 2019", "Wisconsin")
+```
+
+#Importing the WI's bridge data
+
+
+```{r bridge}
+library(data.table)
+WI2018<- fread("https://www.fhwa.dot.gov/bridge/nbi/2018/delimited/WI18.txt")
+```
+
+## Combine the two data
+
+```{r combine}
+library(ggplot2)
+
+WIunemployment = WIunemployment %>% mutate(fips_county=as.integer(fips_county))
+WINov = WINov %>% mutate(fips_county=as.integer(fips_county))
+
+WIdata = WI2018%>% 
+  left_join(WIunemployment,by = c("COUNTY_CODE_003" = "fips_county")) %>% 
+  left_join(WINov,by = c("COUNTY_CODE_003" = "fips_county")) 
+  
+```
+
+
+## Fit the model
+
+
+#Fit a linear model to predict the number of unemployed. 
+
+```{r model1}
+unemployment <- lm(WIdata$unemployed.x
+                     ~ WIdata$LAT_016 + WIdata$ADT_029 + WIdata$MAINTENANCE_021 + 
+                     WIdata$MAIN_UNIT_SPANS_045+ WIdata$TOTAL_IMP_COST_096 )
+summary(unemployment)
+plot(unemployment)
+```
+
+#The model shows that : the variable "Average Daily Traffic", "Maintenance Responsibility", "Number of Spans in Main Unit" and "Total Project Cost" is postively correlated with the unemployment rate in Wisconsin while the "latitude" is negativly correlated with the unemployment rate. These independent variables are all stastically significant.
+
+
+
+#Fit another model to predict the unemployment rate.
+
+```{r model2}
+rate<- lm(WIdata$unemployed_rate.x ~ WIdata$LAT_016 + WIdata$ADT_029 + WIdata$MAINTENANCE_021 + 
+                     WIdata$MAIN_UNIT_SPANS_045+ WIdata$TOTAL_IMP_COST_096)
+
+summary(rate)
+plot(rate)
+```
+
+#The model shows that : the variable "latitude", "Maintenance Responsibility", "Number of Spans in Main Unit" and "Total Project Cost" is postively correlated with the unemployment rate in Wisconsin while the "Average Daily Traffic" is negativly correlated with the unemployment rate. These independent variables are stastically significant except the variable "Number of Spans in Main Unit". 
+
+
+
+#Use the unemployed number and rate from the previous month as additional predictors
+
+```{r model1 new}
+unemploymentNew <- lm(WIdata$unemployed.x
+                     ~ WIdata$unemployed.y
+                       + WIdata$LAT_016 + WIdata$ADT_029 + WIdata$MAINTENANCE_021 + 
+                     WIdata$MAIN_UNIT_SPANS_045+ WIdata$TOTAL_IMP_COST_096 )
+summary(unemploymentNew)
+plot(unemploymentNew)
+```
+
+
+#After adding the unemployed number from the previous month as additional predictor, the new model shows that : the variable "Old unemployed number","Latitude", "Average Daily Traffic" and "Number of Spans in Main Unit" is postively correlated with the unemployment rate in Wisconsin while the "Maintenance Responsibility" and "Total Project Cost" is negativly correlated with the unemployment rate. And among thses predictors, "Maintenance Responsibility" and "Total Project Cost" are not stastically significant.
+
+
+
+```{r model2 new}
+rateNew <- lm(WIdata$unemployed_rate.x ~ WIdata$unemployed_rate.y + 
+                WIdata$LAT_016 + WIdata$ADT_029 + WIdata$MAINTENANCE_021 + 
+                     WIdata$MAIN_UNIT_SPANS_045+ WIdata$TOTAL_IMP_COST_096)
+
+summary(rateNew)
+plot(rateNew)
+```
+
+
+#In this new model, only the variable "unemployement rate from last month" and "Latitude" are postively correlated with the unemployment rate in Wisconsin while other predictors are all negativly correlated with the unemployment rate. These independent variables are all stastically significant.
